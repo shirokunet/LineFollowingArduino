@@ -1,5 +1,5 @@
 #include "Arduino.h"
-#include "L298nController.h"
+#include "l298n_controller.h"
 
 L298nController::L298nController(char pin1, char pin2, char pin3, char pin4, char enableA, char enableB)
 {
@@ -58,8 +58,17 @@ void L298nController::TurnRight(void)
   digitalWrite(pin4_, LOW);
 }
 
-void L298nController::SetMotorSpeed(int lspeed, int rspeed)
+void L298nController::SetMotorSpeed(char enable_pin, float pwm_rate)
 {
-  analogWrite(enableA_, lspeed);
-  analogWrite(enableB_, rspeed);  
+  if (pwm_rate > 1.0)
+    pwm_rate = 1.0;
+  else if (pwm_rate < 0.0)
+    pwm_rate = 0.0;
+  analogWrite(enable_pin, int(pwm_rate * 255));
+}
+
+void L298nController::SetMotorLRSpeed(float l_pwm_rate, float r_pwm_rate)
+{
+  SetMotorSpeed(enableA_, l_pwm_rate);
+  SetMotorSpeed(enableB_, r_pwm_rate);
 }

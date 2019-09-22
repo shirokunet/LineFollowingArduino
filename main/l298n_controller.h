@@ -10,7 +10,7 @@ class L298nController
     void Stop();
     void TurnLeft();
     void TurnRight();
-    void SetMotorSpeed(int lspeed, int rspeed);  // lspeed: 0-255, rspeed: 0-255
+    void SetMotorLRSpeed(float l_pwm_rate, float r_pwm_rate);  // 0~1.0
 
   private:
     char pin1_;     // K1、K2 motor direction
@@ -19,6 +19,7 @@ class L298nController
     char pin4_;     // K3、K4 motor direction
     char enableA_;  // Needs to be a PWM pin to be able to control motor speed ENA
     char enableB_;  // Needs to be a PWM pin to be able to control motor speed ENB
+    void SetMotorSpeed(char enable_pin, float pwm_rate);
 };
 
 #endif

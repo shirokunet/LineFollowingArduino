@@ -1,12 +1,14 @@
-#include "L298nController.h"
-#include "SensorManager.h"
+#include "l298n_controller.h"
+#include "sensor_manager.h"
+#include "pid.h"
 
 /* Macro setting */
 #define DEBUG_CONSOLE
 
 /* Instance setting */
 L298nController l298n = L298nController(7, 8, 9, 10, 5, 6);
-SensorManager sensor = SensorManager(4, 2, 3);
+SensorManager sensor = SensorManager(4, A0, A1);
+PID pid_velocity = PID(1.0, 0.001, 0.1);
 
 /* Grobal Structure */
 typedef enum Mode
@@ -17,23 +19,6 @@ typedef enum Mode
 };
 
 
-void LineFollowing(bool ir_l_on_black, bool ir_r_on_black)
-{
-  const int motor_speed = 80;
-  l298n.SetMotorSpeed(motor_speed, motor_speed);
-
-  if((!ir_l_on_black) && ir_r_on_black)
-    l298n.TurnRight();
-  else if(ir_l_on_black && (!ir_r_on_black))
-    l298n.TurnLeft();
-  else if((!ir_l_on_black) && (!ir_r_on_black))
-    l298n.GoAhead();
-  else
-    l298n.Stop();
-
-  return;
- }
-
 void setup()
 {
   Serial.begin(9600);
@@ -41,11 +26,15 @@ void setup()
 
 void loop()
 {
-  /* Variables */
+  /* Parameter */
   const int loop_interval_msec = 10;
+  const float max_velocity_rate = 0.7;
+  const float end_line_th = 0.6; 
+
+  /* Variables */
   bool button_is_pushed = false;
-  bool ir_l_on_black = false;
-  bool ir_r_on_black = false;
+  float ir_l_black_rate = 0.0;
+  float ir_r_black_rate = 0.0;
   static enum Mode mode = STANDBY;
   static enum Mode mode_z1 = STANDBY;
   static bool button_is_pushed_z1 = false;
@@ -59,19 +48,31 @@ void loop()
 
   /* Update sensors */
   button_is_pushed = sensor.ButtonIsPushed();
-  ir_l_on_black = sensor.LeftIRSensorIsOnBlackLine();
-  ir_r_on_black = sensor.LeftIRSensorIsOnBlackLine();
+  ir_l_black_rate = sensor.LeftIRSensor();
+  ir_r_black_rate = sensor.RightIRSensor();
+
+  /* Calc error */
+  float line_error_rate = (ir_l_black_rate - ir_r_black_rate) / 2.0;
+  float u_velocity = pid_velocity.CalcPID(line_error_rate);
 
   /* Decide Mode and Movement */
   switch (mode) {
     case STANDBY:
-      if((!button_is_pushed_z1) && button_is_pushed)
+      if ((!button_is_pushed_z1) && button_is_pushed)
         mode = LINE_FOLLOWING;
       break;
     case LINE_FOLLOWING:
-      LineFollowing(ir_l_on_black, ir_r_on_black);
-      if((!button_is_pushed_z1) && button_is_pushed)
+      if (u_velocity > 0)
+        l298n.SetMotorLRSpeed(max_velocity_rate - u_velocity, max_velocity_rate);
+      else
+        l298n.SetMotorLRSpeed(max_velocity_rate, max_velocity_rate + u_velocity);
+      l298n.GoAhead();
+
+      if (((!button_is_pushed_z1) && button_is_pushed)
+        || (ir_l_black_rate > end_line_th && ir_r_black_rate > end_line_th))
+      {
         mode = STOP;
+      }
       break;
     case STOP:
       l298n.Stop();
@@ -81,18 +82,27 @@ void loop()
       break;
   }
 
-  /* Debug Console */
 #ifdef DEBUG_CONSOLE
+  /* Debug Console */
+  Serial.print("m:");
   Serial.print(mode);
-  Serial.print(',');
+  Serial.print(", b:");
   Serial.print(button_is_pushed);
-  Serial.print(',');
-  Serial.print(ir_l_on_black);
-  Serial.print(',');
-  Serial.print(ir_r_on_black);
-  Serial.print(',');
-  Serial.print(button_is_pushed_z1);
-  Serial.println("");
+  Serial.print(", sl");
+  Serial.print(ir_l_black_rate);
+  Serial.print(", sr");
+  Serial.print(ir_r_black_rate);
+  Serial.print(", er:");
+  Serial.print(line_error_rate);
+  Serial.print(", p:");
+  Serial.print(pid_velocity.GetProportional());
+  Serial.print(", i:");
+  Serial.print(pid_velocity.GetIntegral());
+  Serial.print(", d:");
+  Serial.print(pid_velocity.GetDerivative());
+  Serial.print(", u");
+  Serial.print(u_velocity);
+  Serial.print("\n");
 #endif
 
   /* Store laset variables */
