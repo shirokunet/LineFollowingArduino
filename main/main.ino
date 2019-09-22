@@ -106,7 +106,7 @@ void loop()
   Serial.print("\n");
 #endif
 
-  /* Store laset variables */
+  /* Store last variables */
   mode_z1 = mode;
   button_is_pushed_z1 = button_is_pushed;
 
