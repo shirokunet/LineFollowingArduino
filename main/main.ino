@@ -6,9 +6,9 @@
 #define DEBUG_CONSOLE
 
 /* Instance setting */
-L298nController l298n = L298nController(7, 8, 9, 10, 5, 6);
+L298nController l298n = L298nController(8, 7, 10, 9, 6, 5);
 SensorManager sensor = SensorManager(4, A0, A1);
-PID pid_velocity = PID(1.0, 0.001, 0.1);
+PID pid_velocity = PID(0.5, 0.001, 0.1);
 
 /* Grobal Structure */
 typedef enum Mode
@@ -27,8 +27,9 @@ void setup()
 void loop()
 {
   /* Parameter */
-  const int loop_interval_msec = 10;
-  const float max_velocity_rate = 0.7;
+  const int loop_interval_msec = 1;
+  const float max_velocity_rate_l = 0.37;
+  const float max_velocity_rate_r = 0.37;
   const float end_line_th = 0.6; 
 
   /* Variables */
@@ -51,7 +52,7 @@ void loop()
   ir_l_black_rate = sensor.LeftIRSensor();
   ir_r_black_rate = sensor.RightIRSensor();
 
-  /* Calc error */
+  /* Calc error and pid */
   float line_error_rate = (ir_l_black_rate - ir_r_black_rate) / 2.0;
   float u_velocity = pid_velocity.CalcPID(line_error_rate);
 
@@ -63,9 +64,9 @@ void loop()
       break;
     case LINE_FOLLOWING:
       if (u_velocity > 0)
-        l298n.SetMotorLRSpeed(max_velocity_rate - u_velocity, max_velocity_rate);
+        l298n.SetMotorLRSpeed(max_velocity_rate_l - u_velocity, max_velocity_rate_r);
       else
-        l298n.SetMotorLRSpeed(max_velocity_rate, max_velocity_rate + u_velocity);
+        l298n.SetMotorLRSpeed(max_velocity_rate_l, max_velocity_rate_r + u_velocity);
       l298n.GoAhead();
 
       if (((!button_is_pushed_z1) && button_is_pushed)
